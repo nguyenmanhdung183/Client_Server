@@ -1,0 +1,90 @@
+﻿bên server; sửa sao cho hợp lý:int init() {
+    WSADATA wsaData;
+    //SOCKET serverSocket, clientSocket, clientSocketFile, serverSocketFile;
+
+    struct sockaddr_in serverAddr, clientAddr, serverAddrFile, clientAddrFile;
+    int clientAddrSize = sizeof(clientAddr);
+
+    // Khởi tạo Winsock
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed." << std::endl;
+        return 1;
+    }
+
+    // Tạo socket
+    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == INVALID_SOCKET) {
+        std::cerr << "Socket creation failed." << std::endl;
+        WSACleanup();
+        return 1;
+    }
+
+    serverSocketFile = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == INVALID_SOCKET) {
+        std::cerr << "Socket File creation failed." << std::endl;
+        WSACleanup();
+        return 1;
+    }
+
+    // Cấu hình địa chỉ server
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(54000);
+
+    serverAddrFile.sin_family = AF_INET;
+    serverAddrFile.sin_addr.s_addr = INADDR_ANY;
+    serverAddrFile.sin_port = htons(54000);
+
+
+
+
+    // Liên kết socket với địa chỉ và cổng
+    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+        std::cerr << "Bind failed." << std::endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // Lắng nghe kết nối
+    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
+        std::cerr << "Listen failed." << std::endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    std::cout << "Server is waiting for client connections..." << std::endl;
+
+    std::vector<std::thread> threads;
+
+    // Bắt đầu luồng xử lý queue
+    std::thread queueThread(processQueue);
+    threads.push_back(std::move(queueThread));
+
+    // Chấp nhận và xử lý nhiều kết nối từ client
+    while (true) {
+        clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &clientAddrSize);
+        if (clientSocket == INVALID_SOCKET) {
+            std::cerr << "Accept failed." << std::endl;
+            closesocket(serverSocket);
+            WSACleanup();
+            return 1;
+        }
+
+        std::cout << "Client connected." << std::endl;
+
+        // Tạo một luồng mới để xử lý client
+        threads.push_back(std::thread(handleClient, clientSocket));
+    }
+
+    // Đợi tất cả các luồng hoàn tất (sẽ không đến đây trong ví dụ này)
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    // Đóng socket và giải phóng Winsock
+    closesocket(serverSocket);
+    WSACleanup();
+    return 0;
+}

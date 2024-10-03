@@ -1,0 +1,261 @@
+﻿#include <iostream>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include "CheckClient.h"
+#include "Global.h"
+
+#pragma comment(lib, "Ws2_32.lib")
+
+int receiveInt(SOCKET sockfd) {
+    int networkValue;
+    // Nhận dữ liệu từ socket
+    recv(sockfd, reinterpret_cast<char*>(&networkValue), sizeof(networkValue), 0);
+    // Chuyển đổi giá trị từ định dạng mạng về định dạng máy chủ
+    return ntohl(networkValue);
+}
+
+
+int init() {
+    WSADATA wsaData;
+    SOCKET serverSocket, clientSocket;
+    struct sockaddr_in serverAddr, clientAddr;
+    int clientAddrSize = sizeof(clientAddr);
+    char buffer[1024] = { 0 };
+
+    // Khởi tạo Winsock
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed." << std::endl;
+        return 1;
+    }
+
+    // Tạo socket
+    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == INVALID_SOCKET) {
+        std::cerr << "Socket creation failed." << std::endl;
+        WSACleanup();
+        return 1;
+    }
+
+    // Cấu hình địa chỉ server
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY; // Lắng nghe tất cả các địa chỉ IP
+    serverAddr.sin_port = htons(54000); // Cổng 54000
+
+    // Liên kết socket với địa chỉ và cổng
+    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+        std::cerr << "Bind failed." << std::endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // Lắng nghe kết nối
+    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
+        std::cerr << "Listen failed." << std::endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    std::cout << "Server dang doi ket noi tu client..." << std::endl;
+
+    // Chấp nhận kết nối từ client
+    clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &clientAddrSize);
+    if (clientSocket == INVALID_SOCKET) {
+        std::cerr << "Accept failed." << std::endl;
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    std::cout << "client chua ket noi" << std::endl;
+
+    // Nhận dữ liệu từ client
+    //recv(clientSocket, buffer, sizeof(buffer), 0);
+    clientId = receiveInt(clientSocket);
+    std::cout << "du lieu nhan duoc tu client: " << clientId << std::endl;
+
+    // Gửi phản hồi lại cho client
+    std::string response = "Hello from server!";
+    send(clientSocket, response.c_str(), response.size(), 0);
+
+    // Đóng kết nối
+    closesocket(clientSocket);
+    closesocket(serverSocket);
+    WSACleanup();
+
+}
+
+int main() {
+    int  clientId = -1;
+    init();
+    return 0;
+}
+
+
+///////////////////Client3
+     Fill WIN32_FIND_DATA for demonstration
+    findData.dwFileAttributes = FILE_ATTRIBUTE_ARCHIVE;
+    strcpy_s(findData.cFileName, "example.txt");
+    strcpy_s(findData.cAlternateFileName, "ex.txt");
+
+    // Send WIN32_FIND_DATA
+    if (!sendWin32FindData(sock, findData)) {
+        std::cerr << "Failed to send WIN32_FIND_DATA" << std::endl;
+    }
+
+////////////////////Server
+  if (receiveWin32FindData(clientSocket, findData)) {
+        // Print received data
+        std::cout << "Received file attributes: " << findData.dwFileAttributes << std::endl;
+        std::cout << "Received file name: " << findData.cFileName << std::endl;
+        std::cout << "Received alternate file name: " << findData.cAlternateFileName << std::endl;
+    } else {
+        std::cerr << "Failed to receive WIN32_FIND_DATA" << std::endl;
+    }
+
+    closesocket(clientSocket);
+    closesocket(serverSocket);
+    WSACleanup();
+
+
+
+
+//void HandleClientUpdate(SOCKET clientSocket) {
+//	dataInfo msgdata;
+//	while (receiveDataFuncion(clientSocket, msgdata)) {
+//		if (msgdata.msg == 'F') {
+//			std::cerr << msgdata.msg << " From Client " << msgdata.myId << std::endl;
+//
+//			// Chuyển đổi từ char array sang wstring
+//			std::wstring directoryInfo(msgdata.directoryInfo.begin(), msgdata.directoryInfo.end());
+//			std::wstring serverDirectory = SERVER_FOLDER + L"\\" + directoryInfo;
+//
+//			if (!CreateDirectory(serverDirectory.c_str(), NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
+//				std::wcerr << L"Failed to create directory on server: " << serverDirectory << std::endl;
+//			}
+//		}
+//		else if (msgdata.msg == 'D') {
+//			break;
+//		}
+//		else if (msgdata.msg == 'f') {
+//			// Chuyển đổi từ char array sang wstring
+//			std::wstring fileName(msgdata.fileName);
+//			std::wstring fullFilePath = SERVER_FOLDER + L"\\" + fileName;
+//
+//			if (!ReceiveFileFromClient(clientSocket, fullFilePath)) {
+//				std::wcerr << L"Failed to receive file on server: " << fullFilePath << std::endl;
+//			}
+//		}
+//
+//		dataInfo msgdata;
+//		msgdata.myId = -1;
+//		msgdata.msg = 'N';
+//		msgdata.fileSize = 0;
+//		msgdata.fileName = L"NULL";
+//		msgdata.directoryInfo = L"NULL";
+//
+//		sentDataFuncion(clientSocket, msgdata);
+//	}
+//}
+//void HandleClientUpdate(SOCKET clientSocket) {// lay file tu client
+//	dataInfo msgdata;
+//	//cho nay van ok
+//	receiveDataFuncion(clientSocket, msgdata); // Nhận thông tin ban đầu từ client
+//	std::cout << "Handling" << std::endl;
+//
+//	while (msgdata.msg != 'D') { // 'D' đại diện cho Done
+//
+//		if (msgdata.msg == 'F') { // Thư mục
+//
+//			std::cerr << msgdata.msg << L" From Client " << msgdata.myId << std::endl;
+//
+//			std::wstring serverDirectory = SERVER_FOLDER + L"\\" + msgdata.directoryInfo;
+//
+//			// Tạo thư mục trên server nếu chưa tồn tại
+//			if (!CreateDirectory(serverDirectory.c_str(), NULL)) {
+//				if (GetLastError() == ERROR_ALREADY_EXISTS) {
+//					std::wcerr << L"Directory already exists: " << serverDirectory << std::endl;
+//				}
+//				else {
+//					std::wcerr << L"Failed to create directory on server: " << serverDirectory << std::endl;
+//				}
+//			}
+//			else {
+//				std::wcerr << L"Successfully created directory: " << serverDirectory << std::endl;
+//			}
+//		}
+//		else if (msgdata.msg == 'f') { // File
+//			std::wstring fullFilePath = SERVER_FOLDER + L"\\" + msgdata.fileName;
+//
+//			if (!ReceiveFileFromClient(clientSocket, fullFilePath)) {
+//				std::wcerr << L"Failed to receive file on server: " << fullFilePath << std::endl;
+//			}
+//		}
+//
+//		// Gửi phản hồi lại cho client sau khi xử lý xong một yêu cầu
+//		dataInfo response;
+//		response.myId = msgdata.myId;
+//		response.msg = 'N'; // next
+//		response.fileSize = 0;
+//		response.fileName = L"NULL";
+//		response.directoryInfo = L"NULL";
+//
+//		sentDataFuncion(clientSocket, response);
+//
+//		// Nhận yêu cầu tiếp theo từ client
+//		receiveDataFuncion(clientSocket, msgdata);
+//	}
+//}
+
+//void HandleClientUpdate(SOCKET clientSocket) {
+//	while (true) {
+//		std::unique_lock<std::mutex> lock(queueMutex);
+//		queueCondition.wait(lock, [] { return !oneClientRequest.empty(); });
+//
+//		dataInfo msgdata = oneClientRequest.front();
+//		oneClientRequest.pop();
+//		lock.unlock();
+//
+//		if (msgdata.msg == 'D') { // 'D' đại diện cho Done
+//			break;
+//		}
+//
+//		if (msgdata.msg == 'F') { // Thư mục
+//			std::cerr << msgdata.msg << L" From Client " << msgdata.myId << std::endl;
+//
+//			std::wstring serverDirectory = SERVER_FOLDER + L"\\" + msgdata.directoryInfo;
+//
+//			if (!CreateDirectory(serverDirectory.c_str(), NULL)) {
+//				if (GetLastError() == ERROR_ALREADY_EXISTS) {
+//					std::wcerr << L"Directory already exists: " << serverDirectory << std::endl;
+//				}
+//				else {
+//					std::wcerr << L"Failed to create directory on server: " << serverDirectory << std::endl;
+//				}
+//			}
+//			else {
+//				std::wcerr << L"Successfully created directory: " << serverDirectory << std::endl;
+//			}
+//		}
+//		else if (msgdata.msg == 'f') { // File
+//			std::wstring fullFilePath = SERVER_FOLDER + L"\\" + msgdata.fileName;
+//
+//			if (!ReceiveFileFromClient(clientSocket, fullFilePath)) {
+//				std::wcerr << L"Failed to receive file on server: " << fullFilePath << std::endl;
+//			}
+//		}
+//
+//		// Gửi phản hồi lại cho client sau khi xử lý xong một yêu cầu
+//		dataInfo response;
+//		response.myId = msgdata.myId;
+//		response.msg = 'N'; // next
+//		response.fileSize = 0;
+//		response.fileName = L"NULL";
+//		response.directoryInfo = L"NULL";
+//
+//		sentDataFuncion(clientSocket, response);
+//		std::cerr << "Sent N to Client" << std::endl;
+//	}
+//}
+
